@@ -1,0 +1,18 @@
+[package]
+name = "kathir_bloom_filter"
+version = "0.1.0"
+edition = "2021"
+description = "Bloom filter library with Python bindings via maturin and pyo3"
+license = "MIT"
+
+[lib]
+name = "kathir_bloom_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+[package.metadata.maturin]
+name = "kathir-bloom-filter"
+
+
