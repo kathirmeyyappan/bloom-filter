@@ -33,7 +33,8 @@ impl BloomFilter {
 
     /// Add an item to the Bloom filter.
     pub fn insert<T: Hash>(&mut self, item: &T) {
-        
+        todo!()
+        // make this return a result to unpack later        
     }
 
     /// Check if an item might be in the Bloom filter.
@@ -54,11 +55,6 @@ impl BloomFilter {
     /// Get the number of bits in the filter.
     pub fn bit_count(&self) -> usize {
         todo!()
-    }
-
-    /// Get the number of hash functions used.
-    pub fn hash_count(&self) -> usize {
-        self.num_hashes
     }
 }
 
