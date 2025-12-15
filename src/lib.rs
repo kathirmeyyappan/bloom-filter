@@ -1,16 +1,14 @@
-use pyo3::prelude::*;
+// Expose the pure Rust implementations for direct Rust usage
+pub mod bloom_filter;
+mod py_bloom_filter;
 
-/// A simple example function exposed to Python.
-#[pyfunction]
-fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
+use pyo3::prelude::*;
+use py_bloom_filter::BloomFilter;
 
 /// The Python module definition.
 #[pymodule]
-fn kathir_bloom_filter(py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    pyo3::prepare_freethreaded_python();
-    m.add_function(wrap_pyfunction!(add, m)?)?;
+fn kathir_bloom_filter(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<BloomFilter>()?;
     Ok(())
 }
 
