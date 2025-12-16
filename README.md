@@ -14,7 +14,7 @@ pip install kathir-bloom-filter
 from kathir_bloom_filter import BloomFilter
 
 # Create a Bloom filter for ~1 million items with 1% false positive rate
-bf = BloomFilter(expected_items=1_000_000, false_positive_rate=0.01)
+bf = BloomFilter(capacity=1_000_000, false_positive_rate=0.01)
 
 # Insert items (strings, ints, or any hashable type)
 bf.insert("hello")
