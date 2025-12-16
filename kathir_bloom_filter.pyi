@@ -28,3 +28,7 @@ class BloomFilter:
         """Return True if the item might be in the set, False if it is definitely not."""
         ...
 
+    def __contains__(self, item: str | int | Hashable) -> bool:
+        """Alias for might_contain; enables use of `item in bloom_filter`. NOTE: still has false positive rate."""
+        ...
+

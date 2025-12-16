@@ -7,21 +7,19 @@ name = "kathir-bloom-filter"
 version = "0.1.0"
 description = "Bloom filter library implemented in Rust with Python bindings"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 license = { text = "MIT" }
 classifiers = [
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Rust",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
 # [project.urls]
 # Homepage = "https://example.com/kathir-bloom-filter"
 
-[project.optional-dependencies]
-dev = ["maturin>=1.7,<2.0"]
-
+[tool.maturin]
+python-source = "."
+include = ["kathir_bloom_filter.pyi"]
 

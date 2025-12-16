@@ -71,6 +71,11 @@ impl BloomFilter {
         Ok(self.inner.might_contain(&h))
     }
 
+    /// Support Python's `in` operator: `item in bloom_filter`.
+    fn __contains__(&self, item: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.might_contain(item)
+    }
+
     /// Get the number of bits in the filter.
     #[getter]
     fn bit_count(&self) -> usize {
