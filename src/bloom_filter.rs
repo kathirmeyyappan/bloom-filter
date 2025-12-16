@@ -1,5 +1,4 @@
 /// Core Bloom Filter implementation in Rust.
-/// This is a pure Rust implementation that can be tested independently.
 
 use std::hash::{BuildHasher, Hash, Hasher};
 use bitvec::prelude::*;
@@ -60,7 +59,7 @@ impl BloomFilter {
 
     /// Get the number of bits in the filter.
     pub fn bit_count(&self) -> usize {
-        todo!()
+        self.bit_array.len()
     }
 }
 
@@ -150,7 +149,7 @@ mod tests {
     #[test]
     fn test_false_positive_rate() {
         let cap = 100;
-        let mut bf = BloomFilter::new(cap, 0.1); // Small capacity, higher false positive rate
+        let mut bf = BloomFilter::new(cap, 0.1);
         for i in 0..cap {
             bf.insert(&i);
         }
@@ -167,18 +166,18 @@ mod tests {
 
     #[test]
     fn test_very_low_false_positive_rate() {
-        let mut bf = BloomFilter::new(100_000, 0.0001); // Very low false positive rate
+        let mut bf = BloomFilter::new(100_000, 0.0001);
         
         for i in 0..100_000 {
             bf.insert(&i);
         }
         
-        // Test items not in filter - should have very few false positives
+        // test 100k items that are not in bloom filter to see false positives
         let false_positives = (100_000..200_000)
             .filter(|i| bf.might_contain(i))
             .count();
         
-        // With 0.01% false positive rate, expect roughly 10 false positives in 100k tests
+        // with 0.01% false positive rate, expect roughly 10 false positives in 100k tests
         assert!(false_positives < 20);
     }
 }
