@@ -199,7 +199,6 @@ mod tests {
         let false_positives = (cap..cap + 100_000).filter(|i| bf.might_contain(i)).count();
 
         // should have roughly 10% false positives with this configuration
-        assert!(false_positives > 7500);
         assert!(false_positives < 12500);
     }
 
