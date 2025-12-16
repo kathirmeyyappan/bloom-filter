@@ -1,5 +1,11 @@
-use bitvec::prelude::*;
 /// Core Bloom Filter implementation in Rust.
+/// References:
+/// - https://www.notion.so/kathirm/Bloom-filter-project-references-2ca9871cd3ff802fb87bef28266252e9?source=copy_link#d803f6ad34b1415ba1047fdd7c666800
+/// - https://en.wikipedia.org/wiki/Bloom_filter
+/// - https://en.wikipedia.org/wiki/Double_hashing
+/// - https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
+
+use bitvec::prelude::*;
 use rustc_hash::FxHasher;
 use std::hash::{Hash, Hasher};
 
