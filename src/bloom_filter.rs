@@ -41,8 +41,7 @@ impl BloomFilter {
 
     /// Add an item to the Bloom filter.
     pub fn insert<T: Hash>(&mut self, item: &T) {
-        let hashes = self.compute_hashes(item);
-        for i in hashes {
+        for i in self.compute_hashed_indices(item) {
             self.bit_array.set(i, true);
         }
     }
@@ -51,13 +50,12 @@ impl BloomFilter {
     /// Returns true if the item might be present (with possibility of false positives),
     /// false if the item is definitely not present.
     pub fn might_contain<T: Hash>(&self, item: &T) -> bool {
-        let hashes = self.compute_hashes(item);
-        // check if all hashes for item are set
-        hashes.iter().all(|i| self.bit_array[*i])
+        self.compute_hashed_indices(item).all(|i| self.bit_array[i])
     }
 
     /// Compute two hash values for double-hashing technique using std library.
-    fn compute_hashes<T: Hash>(&self, item: &T) -> Vec<usize> {
+    #[inline]
+    fn compute_hashed_indices<T: Hash>(&self, item: &T) -> impl Iterator<Item = usize> {
         // First hash: standard hash of the item
         let mut hasher1 = DefaultHasher::new();
         item.hash(&mut hasher1);
@@ -69,9 +67,8 @@ impl BloomFilter {
         item.hash(&mut hasher2);
         let h2 = hasher2.finish() as usize;
 
-        (0..self.num_hashes)
-            .map(|hash_num| h1.wrapping_add(hash_num.wrapping_mul(h2)) % self.bit_array.len())
-            .collect()
+        let m = self.bit_array.len();
+        (0..self.num_hashes).map(move |hash_num| h1.wrapping_add(hash_num.wrapping_mul(h2)) % m)
     }
 
     /// Get the number of bits in the filter.
