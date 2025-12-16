@@ -5,6 +5,8 @@ from kathir_bloom_filter import BloomFilter as KathirBloomFilter
 from bloom_filter import BloomFilter
 from rbloom import Bloom as RbloomFilter
 from bloom_filter2 import BloomFilter as BloomFilter2
+from pybloom_live import BloomFilter as PybloomFilter
+from fastbloom_rs import BloomFilter as FastbloomFilter
 import random
 import string
 import time
@@ -31,6 +33,22 @@ def generate_data(data_type: str, n: int, seed: int = 42):
         member_set = set(member_data)
         non_member_data = [s for s in all_strings if s not in member_set]
         return member_data, non_member_data
+    
+    elif data_type == "tuple":
+        all_tuples = []
+        for _ in range(2 * n):
+            tuple_length = random.randint(1, 5)
+            tuple_elements = []
+            for _ in range(tuple_length):
+                if random.choice([True, False]):
+                    tuple_elements.append(random.randint(0, 100))
+                else:
+                    tuple_elements.append(random.choice(string.ascii_letters))
+            all_tuples.append(tuple(tuple_elements))
+        member_data = random.sample(all_tuples, n)
+        member_set = set(member_data)
+        non_member_data = [t for t in all_tuples if t not in member_set]
+        return member_data, non_member_data
 
     elif data_type == "mixed":
         # generate 2n distinct items, ~homogenous mix of the three types
@@ -52,133 +70,44 @@ def generate_data(data_type: str, n: int, seed: int = 42):
     return [], []
 
 
-def benchmark_insertion(bf, bf2, rbf, kbf, data):
-    """Benchmark insertion speed."""
-    # bloom-filter
-    start = time.perf_counter()
-    for item in data:
-        bf.add(item)
-    py_time = time.perf_counter() - start
+def benchmark_single_insert(bf, data, insert_fn):
+    """
+    Benchmark insertion for a single filter.
     
-    # bloom-filter2
-    start = time.perf_counter()
-    for item in data:
-        bf2.add(item)
-    bf2_time = time.perf_counter() - start
+    Args:
+        bf: The bloom filter instance
+        data: Items to insert
+        insert_fn: Function to call for insertion (e.g., lambda bf, item: bf.add(item))
     
-    # rbloom
-    start = time.perf_counter()
-    for item in data:
-        rbf.add(item)
-    rbloom_time = time.perf_counter() - start
-    
-    # kathir-bloom-filter
-    start = time.perf_counter()
-    for item in data:
-        kbf.insert(item)
-    rust_time = time.perf_counter() - start
-    
-    return py_time, bf2_time, rbloom_time, rust_time
+    Returns:
+        Time taken in seconds, or None if failed
+    """
+    try:
+        start = time.perf_counter()
+        for item in data:
+            insert_fn(bf, item)
+        return time.perf_counter() - start
+    except Exception as e:
+        print(f"  Insert failed: {e}")
+        return None
 
 
-def benchmark_query(bf, bf2, rbf, kbf, data):
-    """Benchmark query speed."""
-    # bloom-filter
-    start = time.perf_counter()
-    py_found = sum([item in bf for item in data])
-    py_time = time.perf_counter() - start
+def benchmark_single_query(bf, data, query_fn):
+    """
+    Benchmark query for a single filter.
     
-    # bloom-filter2
-    start = time.perf_counter()
-    bf2_found = sum([item in bf2 for item in data])
-    bf2_time = time.perf_counter() - start
+    Args:
+        bf: The bloom filter instance
+        data: Items to query
+        query_fn: Function to call for query (e.g., lambda bf, item: item in bf)
     
-    # rbloom
-    start = time.perf_counter()
-    rbloom_found = sum([item in rbf for item in data])
-    rbloom_time = time.perf_counter() - start
-    
-    # kathir-bloom-filter
-    start = time.perf_counter()
-    rust_found = sum([item in kbf for item in data])
-    rust_time = time.perf_counter() - start
-    
-    return py_time, bf2_time, rbloom_time, rust_time, py_found, bf2_found, rbloom_found, rust_found
-
-
-def benchmark_false_positives(bf, bf2, rbf, kbf, non_member_data):
-    """Benchmark false positive rate."""
-    py_fp = sum([item in bf for item in non_member_data])
-    bf2_fp = sum([item in bf2 for item in non_member_data])
-    rbloom_fp = sum([item in rbf for item in non_member_data])
-    rust_fp = sum([item in kbf for item in non_member_data])
-    return py_fp, bf2_fp, rbloom_fp, rust_fp
-
-
-def run_benchmark(data_type: str, n: int, capacity: int, error_rate: float):
-    """Run complete benchmark for a data type."""
-    print(f"\n{data_type.upper()} (N={n:,}):")
-    print("-" * 60)
-    
-    # Generate data - returns tuple of (member_data, non_member_data) guaranteed to be disjoint
-    member_data, non_member_data = generate_data(data_type, n, seed=42)
-    
-    # Create filters
-    bf = BloomFilter(max_elements=capacity, error_rate=error_rate)
-    kbf = KathirBloomFilter(capacity=capacity, false_positive_rate=error_rate)
-    rbf = RbloomFilter(expected_items=capacity, false_positive_rate=error_rate)
-    bf2 = BloomFilter2(max_elements=capacity, error_rate=error_rate)
-    
-    # Insertion
-    py_insert, bf2_insert, rbloom_insert, rust_insert = benchmark_insertion(bf, bf2, rbf, kbf, member_data)
-    print(f"  Insertion:")
-    print(f"    bloom-filter:        {py_insert:.4f}s ({n/py_insert:,.0f} items/sec)")
-    print(f"    bloom-filter2:      {bf2_insert:.4f}s ({n/bf2_insert:,.0f} items/sec)")
-    print(f"    rbloom:              {rbloom_insert:.4f}s ({n/rbloom_insert:,.0f} items/sec)")
-    print(f"    kathir-bloom-filter: {rust_insert:.4f}s ({n/rust_insert:,.0f} items/sec)")
-    
-    # Query
-    py_query, bf2_query, rbloom_query, rust_query, py_found, bf2_found, rbloom_found, rust_found = benchmark_query(bf, bf2, rbf, kbf, member_data)
-    print(f"  Query (present):")
-    print(f"    bloom-filter:        {py_query:.4f}s ({n/py_query:,.0f} queries/sec)")
-    print(f"    bloom-filter2:      {bf2_query:.4f}s ({n/bf2_query:,.0f} queries/sec)")
-    print(f"    rbloom:              {rbloom_query:.4f}s ({n/rbloom_query:,.0f} queries/sec)")
-    print(f"    kathir-bloom-filter: {rust_query:.4f}s ({n/rust_query:,.0f} queries/sec)")
-    print(f"    Found:               bloom-filter={py_found:,}/{n:,}, bloom-filter2={bf2_found:,}/{n:,}, rbloom={rbloom_found:,}/{n:,}, kathir-bloom-filter={rust_found:,}/{n:,}")
-    
-    # False positives
-    py_fp, bf2_fp, rbloom_fp, rust_fp = benchmark_false_positives(bf, bf2, rbf, kbf, non_member_data)
-    expected_fp = n * error_rate
-    print(f"  False Positives:")
-    print(f"    Expected:            {expected_fp:,.0f}")
-    print(f"    bloom-filter:        {py_fp:,} ({py_fp/n*100:.4f}%)")
-    print(f"    bloom-filter2:      {bf2_fp:,} ({bf2_fp/n*100:.4f}%)")
-    print(f"    rbloom:              {rbloom_fp:,} ({rbloom_fp/n*100:.4f}%)")
-    print(f"    kathir-bloom-filter: {rust_fp:,} ({rust_fp/n*100:.4f}%)")
-
-
-def main():
-    """Run all benchmarks."""
-    print("=" * 60)
-    print("BLOOM FILTER BENCHMARK")
-    
-    n, capacity, error_rate = 1_000_000, 1_000_000, 0.001
-    
-    data_types = ["int", "string", "mixed"]
-    
-    print(f"CONFIGURATION: N={n:,}, Capacity={capacity:,}, Error Rate={error_rate}")
-    print(f"{'='*60}")
-    
-    for data_type in data_types:
-        try:
-            run_benchmark(data_type, n, capacity, error_rate)
-        except Exception as e:
-            print(f"  ERROR: {e}")
-    
-    print(f"\n{'='*60}")
-    print("BENCHMARK COMPLETE")
-    print(f"{'='*60}")
-
-
-if __name__ == "__main__":
-    main()
+    Returns:
+        (time, found_count) or (None, None) if failed
+    """
+    try:
+        start = time.perf_counter()
+        found = sum([1 for item in data if query_fn(bf, item)])
+        return time.perf_counter() - start, found
+    except Exception as e:
+        print(f"  Query failed: {e}")
+        return None, None
