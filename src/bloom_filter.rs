@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 /// Core Bloom Filter implementation in Rust.
-use fxhash::FxHasher;
+use rustc_hash::FxHasher;
 use std::hash::{Hash, Hasher};
 
 const LN_2: f64 = 0.6931471805599453;
@@ -59,7 +59,7 @@ impl BloomFilter {
     /// Returns an iterator for short circuiting optimization.
     fn compute_hashed_indices_iterator<T: Hash>(&self, item: &T) -> impl Iterator<Item = usize> {
         let (h1, h2) = self.get_base_hashes(item);
-        let m = self.bit_array.len();
+        let m = self.bit_count();
         (0..self.num_hashes).map(move |i| (h1.wrapping_add(i.wrapping_mul(h2))) % m)
     }
 
@@ -67,7 +67,7 @@ impl BloomFilter {
     /// Returns a stack-allocated array (k < 30 is assumed).
     fn compute_hashed_indices_array<T: Hash>(&self, item: &T) -> [usize; 30] {
         let (h1, h2) = self.get_base_hashes(item);
-        let m = self.bit_array.len();
+        let m = self.bit_count();
         let mut indices = [0_usize; 30];
         for i in 0..self.num_hashes {
             indices[i] = (h1.wrapping_add(i.wrapping_mul(h2))) % m;
@@ -85,11 +85,11 @@ impl BloomFilter {
         item.hash(&mut hasher1);
         let h1 = hasher1.finish() as usize;
 
-        // Second hash: hash (item, seed) as a tuple for independence
+        // Second hash: hash (item, seed) as for relative independence
         let mut hasher2 = FxHasher::default();
         item.hash(&mut hasher2);
         0x517cc1b727220a95usize.hash(&mut hasher2);
-        let h2 = hasher2.finish() as usize;
+        let h2 = hasher2.finish().reverse_bits() as usize;
 
         (h1, h2)
     }
