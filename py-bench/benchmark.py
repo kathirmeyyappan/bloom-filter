@@ -52,7 +52,7 @@ def generate_data(data_type: str, n: int, seed: int = 42):
     return [], []
 
 
-def benchmark_insertion(bf, kbf, rbf, bf2, data):
+def benchmark_insertion(bf, bf2, rbf, kbf, data):
     """Benchmark insertion speed."""
     # bloom-filter
     start = time.perf_counter()
@@ -60,11 +60,11 @@ def benchmark_insertion(bf, kbf, rbf, bf2, data):
         bf.add(item)
     py_time = time.perf_counter() - start
     
-    # kathir-bloom-filter
+    # bloom-filter2
     start = time.perf_counter()
     for item in data:
-        kbf.insert(item)
-    rust_time = time.perf_counter() - start
+        bf2.add(item)
+    bf2_time = time.perf_counter() - start
     
     # rbloom
     start = time.perf_counter()
@@ -72,47 +72,47 @@ def benchmark_insertion(bf, kbf, rbf, bf2, data):
         rbf.add(item)
     rbloom_time = time.perf_counter() - start
     
-    # bloom-filter2
+    # kathir-bloom-filter
     start = time.perf_counter()
     for item in data:
-        bf2.add(item)
-    bf2_time = time.perf_counter() - start
+        kbf.insert(item)
+    rust_time = time.perf_counter() - start
     
-    return py_time, rust_time, rbloom_time, bf2_time
+    return py_time, bf2_time, rbloom_time, rust_time
 
 
-def benchmark_query(bf, kbf, rbf, bf2, data):
+def benchmark_query(bf, bf2, rbf, kbf, data):
     """Benchmark query speed."""
     # bloom-filter
     start = time.perf_counter()
     py_found = sum([item in bf for item in data])
     py_time = time.perf_counter() - start
     
-    # kathir-bloom-filter
+    # bloom-filter2
     start = time.perf_counter()
-    rust_found = sum([item in kbf for item in data])
-    rust_time = time.perf_counter() - start
+    bf2_found = sum([item in bf2 for item in data])
+    bf2_time = time.perf_counter() - start
     
     # rbloom
     start = time.perf_counter()
     rbloom_found = sum([item in rbf for item in data])
     rbloom_time = time.perf_counter() - start
     
-    # bloom-filter2
+    # kathir-bloom-filter
     start = time.perf_counter()
-    bf2_found = sum([item in bf2 for item in data])
-    bf2_time = time.perf_counter() - start
+    rust_found = sum([item in kbf for item in data])
+    rust_time = time.perf_counter() - start
     
-    return py_time, rust_time, rbloom_time, bf2_time, py_found, rust_found, rbloom_found, bf2_found
+    return py_time, bf2_time, rbloom_time, rust_time, py_found, bf2_found, rbloom_found, rust_found
 
 
-def benchmark_false_positives(bf, kbf, rbf, bf2, non_member_data):
+def benchmark_false_positives(bf, bf2, rbf, kbf, non_member_data):
     """Benchmark false positive rate."""
     py_fp = sum([item in bf for item in non_member_data])
-    rust_fp = sum([item in kbf for item in non_member_data])
-    rbloom_fp = sum([item in rbf for item in non_member_data])
     bf2_fp = sum([item in bf2 for item in non_member_data])
-    return py_fp, rust_fp, rbloom_fp, bf2_fp
+    rbloom_fp = sum([item in rbf for item in non_member_data])
+    rust_fp = sum([item in kbf for item in non_member_data])
+    return py_fp, bf2_fp, rbloom_fp, rust_fp
 
 
 def run_benchmark(data_type: str, n: int, capacity: int, error_rate: float):
@@ -130,31 +130,31 @@ def run_benchmark(data_type: str, n: int, capacity: int, error_rate: float):
     bf2 = BloomFilter2(max_elements=capacity, error_rate=error_rate)
     
     # Insertion
-    py_insert, rust_insert, rbloom_insert, bf2_insert = benchmark_insertion(bf, kbf, rbf, bf2, member_data)
+    py_insert, bf2_insert, rbloom_insert, rust_insert = benchmark_insertion(bf, bf2, rbf, kbf, member_data)
     print(f"  Insertion:")
     print(f"    bloom-filter:        {py_insert:.4f}s ({n/py_insert:,.0f} items/sec)")
-    print(f"    kathir-bloom-filter: {rust_insert:.4f}s ({n/rust_insert:,.0f} items/sec)")
-    print(f"    rbloom:              {rbloom_insert:.4f}s ({n/rbloom_insert:,.0f} items/sec)")
     print(f"    bloom-filter2:      {bf2_insert:.4f}s ({n/bf2_insert:,.0f} items/sec)")
+    print(f"    rbloom:              {rbloom_insert:.4f}s ({n/rbloom_insert:,.0f} items/sec)")
+    print(f"    kathir-bloom-filter: {rust_insert:.4f}s ({n/rust_insert:,.0f} items/sec)")
     
     # Query
-    py_query, rust_query, rbloom_query, bf2_query, py_found, rust_found, rbloom_found, bf2_found = benchmark_query(bf, kbf, rbf, bf2, member_data)
+    py_query, bf2_query, rbloom_query, rust_query, py_found, bf2_found, rbloom_found, rust_found = benchmark_query(bf, bf2, rbf, kbf, member_data)
     print(f"  Query (present):")
     print(f"    bloom-filter:        {py_query:.4f}s ({n/py_query:,.0f} queries/sec)")
-    print(f"    kathir-bloom-filter: {rust_query:.4f}s ({n/rust_query:,.0f} queries/sec)")
-    print(f"    rbloom:              {rbloom_query:.4f}s ({n/rbloom_query:,.0f} queries/sec)")
     print(f"    bloom-filter2:      {bf2_query:.4f}s ({n/bf2_query:,.0f} queries/sec)")
-    print(f"    Found:               bloom-filter={py_found:,}/{n:,}, kathir-bloom-filter={rust_found:,}/{n:,}, rbloom={rbloom_found:,}/{n:,}, bloom-filter2={bf2_found:,}/{n:,}")
+    print(f"    rbloom:              {rbloom_query:.4f}s ({n/rbloom_query:,.0f} queries/sec)")
+    print(f"    kathir-bloom-filter: {rust_query:.4f}s ({n/rust_query:,.0f} queries/sec)")
+    print(f"    Found:               bloom-filter={py_found:,}/{n:,}, bloom-filter2={bf2_found:,}/{n:,}, rbloom={rbloom_found:,}/{n:,}, kathir-bloom-filter={rust_found:,}/{n:,}")
     
     # False positives
-    py_fp, rust_fp, rbloom_fp, bf2_fp = benchmark_false_positives(bf, kbf, rbf, bf2, non_member_data)
+    py_fp, bf2_fp, rbloom_fp, rust_fp = benchmark_false_positives(bf, bf2, rbf, kbf, non_member_data)
     expected_fp = n * error_rate
     print(f"  False Positives:")
     print(f"    Expected:            {expected_fp:,.0f}")
     print(f"    bloom-filter:        {py_fp:,} ({py_fp/n*100:.4f}%)")
-    print(f"    kathir-bloom-filter: {rust_fp:,} ({rust_fp/n*100:.4f}%)")
-    print(f"    rbloom:              {rbloom_fp:,} ({rbloom_fp/n*100:.4f}%)")
     print(f"    bloom-filter2:      {bf2_fp:,} ({bf2_fp/n*100:.4f}%)")
+    print(f"    rbloom:              {rbloom_fp:,} ({rbloom_fp/n*100:.4f}%)")
+    print(f"    kathir-bloom-filter: {rust_fp:,} ({rust_fp/n*100:.4f}%)")
 
 
 def main():
