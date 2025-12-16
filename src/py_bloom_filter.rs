@@ -1,5 +1,7 @@
 use crate::bloom_filter::BloomFilter as RustBloomFilter;
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
+use pyo3::Bound;
 
 /// Python-exposed BloomFilter class.
 #[pyclass]
@@ -28,15 +30,45 @@ impl BloomFilter {
     }
 
     /// Add an item to the Bloom filter.
-    fn insert(&mut self, item: String) {
-        // TODO: make it so it's not just string
-        self.inner.insert(&item)
+    ///
+    /// From Python, this accepts:
+    /// - strings
+    /// - integers
+    /// - any other hashable object (via Python's built-in `hash`)
+    fn insert(&mut self, item: &Bound<'_, PyAny>) -> PyResult<()> {
+        // handle py strings as is
+        if let Ok(s) = item.extract::<String>() {
+            self.inner.insert(&s);
+            return Ok(());
+        }
+
+        // handle py integers as i64
+        if let Ok(i) = item.extract::<i64>() {
+            self.inner.insert(&i);
+            return Ok(());
+        }
+
+        // arbitrary py objects will be hashed into ints before being passed in
+        let h = item.hash()?; // isize
+        self.inner.insert(&h);
+        Ok(())
     }
 
     /// Check if an item might be in the Bloom filter.
-    fn might_contain(&self, item: String) -> bool {
-        // TODO: make it so it's not just string
-        self.inner.might_contain(&item)
+    fn might_contain(&self, item: &Bound<'_, PyAny>) -> PyResult<bool> {
+        // handle py strings as is
+        if let Ok(s) = item.extract::<String>() {
+            return Ok(self.inner.might_contain(&s));
+        }
+
+        // handle py integers as i64
+        if let Ok(i) = item.extract::<i64>() {
+            return Ok(self.inner.might_contain(&i));
+        }
+
+        // arbitrary py objects will be hashed into ints before being passed in
+        let h = item.hash()?;
+        Ok(self.inner.might_contain(&h))
     }
 
     /// Get the number of bits in the filter.
