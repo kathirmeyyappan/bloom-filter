@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Bloom filter library implemented in Rust with Python bindings"
 readme = "README.md"
 requires-python = ">=3.7"
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Kathir Meyyappan", email = "kathirmeyn@gmail.com" }]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Rust",
@@ -16,8 +16,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-# [project.urls]
-# Homepage = "https://example.com/kathir-bloom-filter"
+[project.urls]
+Homepage = "https://github.com/kathirmeyyappan/bloom-filter"
 
 [tool.maturin]
 python-source = "."
