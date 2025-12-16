@@ -1,7 +1,7 @@
-use ahash::RandomState;
 use bitvec::prelude::*;
 /// Core Bloom Filter implementation in Rust.
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 const LN_2: f64 = 0.6931471805599453;
 
@@ -41,8 +41,8 @@ impl BloomFilter {
 
     /// Add an item to the Bloom filter.
     pub fn insert<T: Hash>(&mut self, item: &T) {
-        for hash_num in 0..self.num_hashes {
-            let i = self.hash_index(item, hash_num);
+        let hashes = self.compute_hashes(item);
+        for i in hashes {
             self.bit_array.set(i, true);
         }
     }
@@ -51,19 +51,27 @@ impl BloomFilter {
     /// Returns true if the item might be present (with possibility of false positives),
     /// false if the item is definitely not present.
     pub fn might_contain<T: Hash>(&self, item: &T) -> bool {
+        let hashes = self.compute_hashes(item);
         // check if all hashes for item are set
-        (0..self.num_hashes).all(|hash_num| {
-            let i = self.hash_index(item, hash_num);
-            self.bit_array[i]
-        })
+        hashes.iter().all(|i| self.bit_array[*i])
     }
 
-    /// Hash based on a seed to consistently get results for n-hashes on an item
-    fn hash_index<T: Hash>(&self, item: &T, hash_num: usize) -> usize {
-        let state = RandomState::with_seeds(hash_num as u64, 42, 42, 42);
-        let mut hasher = state.build_hasher();
-        item.hash(&mut hasher);
-        hasher.finish() as usize % self.bit_array.len()
+    /// Compute two hash values for double-hashing technique using std library.
+    fn compute_hashes<T: Hash>(&self, item: &T) -> Vec<usize> {
+        // First hash: standard hash of the item
+        let mut hasher1 = DefaultHasher::new();
+        item.hash(&mut hasher1);
+        let h1 = hasher1.finish() as usize;
+
+        // Second hash: hash the item with a seed to get independent hash
+        let mut hasher2 = DefaultHasher::new();
+        hasher2.write_u64(0x517cc1b727220a95); // seed value
+        item.hash(&mut hasher2);
+        let h2 = hasher2.finish() as usize;
+
+        (0..self.num_hashes)
+            .map(|hash_num| h1.wrapping_add(hash_num.wrapping_mul(h2)) % self.bit_array.len())
+            .collect()
     }
 
     /// Get the number of bits in the filter.
