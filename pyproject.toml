@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kathir-bloom-filter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bloom filter library implemented in Rust with Python bindings"
 readme = "README.md"
 requires-python = ">=3.7"
