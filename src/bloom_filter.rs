@@ -18,7 +18,13 @@ impl BloomFilter {
     /// # Arguments
     /// * `capacity` - Expected number of elements
     /// * `false_positive_rate` - Desired false positive probability (e.g., 0.01 for 1%)
+    /// 
+    /// # Panics
+    /// Panics if `capacity` is 0 or if `false_positive_rate` is >= 1.0
     pub fn new(capacity: usize, false_positive_rate: f64) -> Self {
+        assert!(capacity != 0, "capacity must be greater than 0");
+        assert!(false_positive_rate < 1.0, "false_positive_rate must be less than 1.0");
+        
         // personal reference for math: https://www.notion.so/kathirm/Bloom-filter-project-references-2ca9871cd3ff802fb87bef28266252e9?source=copy_link#d803f6ad34b1415ba1047fdd7c666800
         let num_bits = (-(capacity as f64 * false_positive_rate.ln() / (LN_2.powi(2)))).ceil() as usize;
         let num_hashes = (num_bits as f64 / capacity as f64 * LN_2).ceil() as usize; // slightly faster than taking log(false_positive_rate)
@@ -179,6 +185,24 @@ mod tests {
         
         // with 0.01% false positive rate, expect roughly 10 false positives in 100k tests
         assert!(false_positives < 20);
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity must be greater than 0")]
+    fn test_zero_capacity_panics() {
+        BloomFilter::new(0, 0.01);
+    }
+
+    #[test]
+    #[should_panic(expected = "false_positive_rate must be less than 1.0")]
+    fn test_false_positive_rate_ge_one_panics() {
+        BloomFilter::new(100, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "false_positive_rate must be less than 1.0")]
+    fn test_false_positive_rate_gt_one_panics() {
+        BloomFilter::new(100, 1.5);
     }
 }
 
