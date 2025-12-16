@@ -4,12 +4,10 @@
 /// - https://en.wikipedia.org/wiki/Bloom_filter
 /// - https://en.wikipedia.org/wiki/Double_hashing
 /// - https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
-
 use bitvec::prelude::*;
 use rustc_hash::FxHasher;
+use std::f64::consts::LN_2;
 use std::hash::{Hash, Hasher};
-
-const LN_2: f64 = 0.6931471805599453;
 
 pub struct BloomFilter {
     bit_array: BitVec<u64, Lsb0>,
@@ -75,6 +73,7 @@ impl BloomFilter {
         let (h1, h2) = self.get_base_hashes(item);
         let m = self.bit_count();
         let mut indices = [0_usize; 30];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.num_hashes {
             indices[i] = (h1.wrapping_add(i.wrapping_mul(h2))) % m;
         }
