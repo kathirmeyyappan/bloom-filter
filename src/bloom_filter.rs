@@ -33,20 +33,26 @@ impl BloomFilter {
 
     /// Add an item to the Bloom filter.
     pub fn insert<T: Hash>(&mut self, item: &T) {
-        todo!()
-        // make this return a result to unpack later        
+        for hash_num in 0..self.num_hashes{
+            let i = self.hash_index(item, hash_num);
+            self.bit_array.set(i, true);
+        }
     }
 
     /// Check if an item might be in the Bloom filter.
     /// Returns true if the item might be present (with possibility of false positives),
     /// false if the item is definitely not present.
     pub fn might_contain<T: Hash>(&self, item: &T) -> bool {
-        todo!()
+        // check if all hashes for item are set
+        (0..self.num_hashes).all(|hash_num| {
+            let i = self.hash_index(item, hash_num);
+            self.bit_array[i]
+        })
     }
 
     /// Hash based on a seed to consistently get results for n-hashes on an item
     fn hash_index<T: Hash>(&self, item: &T, hash_num: usize) -> usize {
-        let state = RandomState::with_seed(hash_num);
+        let state = RandomState::with_seeds(hash_num as u64, 42, 42, 42);
         let mut hasher = state.build_hasher();
         item.hash(&mut hasher);
         hasher.finish() as usize % self.bit_array.len()
@@ -74,21 +80,106 @@ mod tests {
     }
 
     #[test]
-    fn test_false_positives() {
-        let mut bf = BloomFilter::new(10, 0.1); // Small capacity, higher false positive rate
-        for i in 0..10 {
+    fn test_no_false_negatives() {
+        let mut bf = BloomFilter::new(10_000, 0.01);
+
+        for item in 0..10_000 {
+            bf.insert(&item);
+        }
+        
+        for item in 0..10_000 {
+            assert!(bf.might_contain(&item), "False negative for item: {}", item);
+        }
+    }
+
+    #[test]
+    fn test_empty_filter() {
+        let bf = BloomFilter::new(100, 0.01);
+        
+        // empty filter should return false for everything
+        assert!(!bf.might_contain(&"anything"));
+        assert!(!bf.might_contain(&42));
+        assert!(!bf.might_contain(&vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_different_types() {
+        let mut bf = BloomFilter::new(100, 0.01);
+        
+        bf.insert(&"string");
+        bf.insert(&42i32);
+        bf.insert(&100u64);
+        bf.insert(&vec![1, 2, 3]);
+        
+        assert!(bf.might_contain(&"string"));
+        assert!(bf.might_contain(&42i32));
+        assert!(bf.might_contain(&100u64));
+        assert!(bf.might_contain(&vec![1, 2, 3]));
+        
+        assert!(!bf.might_contain(&"different_string"));
+        assert!(!bf.might_contain(&99i32));
+    }
+
+    #[test]
+    fn test_duplicate_inserts() {
+        let mut bf = BloomFilter::new(100, 0.01);
+        let item = "test_item";
+        
+        // inserting same item multiple times should be fine
+        bf.insert(&item);
+        bf.insert(&item);
+        bf.insert(&item);
+        assert!(bf.might_contain(&item));
+    }
+
+
+    #[test]
+    fn test_large_capacity() {
+        let capacity = 10_000;
+        let mut bf = BloomFilter::new(capacity, 0.01);
+        
+        for i in (0..capacity).step_by(100) {
             bf.insert(&i);
         }
         
-        // Check some items that weren't inserted
-        // With small capacity, we might get false positives
-        let false_positives = (10..20)
+        for i in (0..capacity).step_by(100) {
+            assert!(bf.might_contain(&i));
+        }
+    }
+
+    #[test]
+    fn test_false_positive_rate() {
+        let cap = 100;
+        let mut bf = BloomFilter::new(cap, 0.1); // Small capacity, higher false positive rate
+        for i in 0..cap {
+            bf.insert(&i);
+        }
+        
+        // test 100k items that are not in bloom filter to see false positives
+        let false_positives = (cap..cap+100_000)
             .filter(|i| bf.might_contain(i))
             .count();
         
-        // Should have some false positives with this configuration
-        // (exact count depends on hash collisions)
-        println!("False positives in range 10-20: {}", false_positives);
+        // should have roughly 10% false positives with this configuration
+        assert!(false_positives > 7500);
+        assert!(false_positives < 12500);
+    }
+
+    #[test]
+    fn test_very_low_false_positive_rate() {
+        let mut bf = BloomFilter::new(100_000, 0.0001); // Very low false positive rate
+        
+        for i in 0..100_000 {
+            bf.insert(&i);
+        }
+        
+        // Test items not in filter - should have very few false positives
+        let false_positives = (100_000..200_000)
+            .filter(|i| bf.might_contain(i))
+            .count();
+        
+        // With 0.01% false positive rate, expect roughly 10 false positives in 100k tests
+        assert!(false_positives < 20);
     }
 }
 
