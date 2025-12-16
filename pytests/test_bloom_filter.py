@@ -1,3 +1,5 @@
+# AI-generated pytest tests for the BloomFilter class
+
 from kathir_bloom_filter import BloomFilter
 
 
