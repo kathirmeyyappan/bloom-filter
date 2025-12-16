@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 /// Core Bloom Filter implementation in Rust.
-use std::collections::hash_map::DefaultHasher;
+use fxhash::FxHasher;
 use std::hash::{Hash, Hasher};
 
 const LN_2: f64 = 0.6931471805599453;
@@ -41,7 +41,8 @@ impl BloomFilter {
 
     /// Add an item to the Bloom filter.
     pub fn insert<T: Hash>(&mut self, item: &T) {
-        for i in self.compute_hashed_indices(item) {
+        let indices = self.compute_hashed_indices_array(item);
+        for &i in &indices[..self.num_hashes] {
             self.bit_array.set(i, true);
         }
     }
@@ -50,25 +51,46 @@ impl BloomFilter {
     /// Returns true if the item might be present (with possibility of false positives),
     /// false if the item is definitely not present.
     pub fn might_contain<T: Hash>(&self, item: &T) -> bool {
-        self.compute_hashed_indices(item).all(|i| self.bit_array[i])
+        self.compute_hashed_indices_iterator(item)
+            .all(|i| self.bit_array[i])
     }
 
-    /// Compute two hash values for double-hashing technique using std library.
+    /// Get hash indices
+    /// Returns an iterator for short circuiting optimization.
+    fn compute_hashed_indices_iterator<T: Hash>(&self, item: &T) -> impl Iterator<Item = usize> {
+        let (h1, h2) = self.get_base_hashes(item);
+        let m = self.bit_array.len();
+        (0..self.num_hashes).map(move |i| (h1.wrapping_add(i.wrapping_mul(h2))) % m)
+    }
+
+    /// Get hash indices.
+    /// Returns a stack-allocated array (k < 30 is assumed).
+    fn compute_hashed_indices_array<T: Hash>(&self, item: &T) -> [usize; 30] {
+        let (h1, h2) = self.get_base_hashes(item);
+        let m = self.bit_array.len();
+        let mut indices = [0usize; 30];
+        for i in 0..self.num_hashes {
+            indices[i] = (h1.wrapping_add(i.wrapping_mul(h2))) % m;
+        }
+        indices
+    }
+
+    /// Get hashes to use in double-hashing technique.
+    /// Uses FxHasher for maximum speed (non-cryptographic).
     #[inline]
-    fn compute_hashed_indices<T: Hash>(&self, item: &T) -> impl Iterator<Item = usize> {
-        // First hash: standard hash of the item
-        let mut hasher1 = DefaultHasher::new();
+    fn get_base_hashes<T: Hash>(&self, item: &T) -> (usize, usize) {
+        // standard hash of the item
+        let mut hasher1 = FxHasher::default();
         item.hash(&mut hasher1);
         let h1 = hasher1.finish() as usize;
 
-        // Second hash: hash the item with a seed to get independent hash
-        let mut hasher2 = DefaultHasher::new();
+        // hash the item with a seed to get independent hash
+        let mut hasher2 = FxHasher::default();
         hasher2.write_u64(0x517cc1b727220a95); // seed value
         item.hash(&mut hasher2);
         let h2 = hasher2.finish() as usize;
 
-        let m = self.bit_array.len();
-        (0..self.num_hashes).map(move |hash_num| h1.wrapping_add(hash_num.wrapping_mul(h2)) % m)
+        (h1, h2)
     }
 
     /// Get the number of bits in the filter.
