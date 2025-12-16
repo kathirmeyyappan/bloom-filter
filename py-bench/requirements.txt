@@ -1,3 +1,8 @@
 bloom-filter
 rbloom
 bloom-filter2
+blooms
+pybloom-live
+fastbloom-rs
+matplotlib
+numpy
