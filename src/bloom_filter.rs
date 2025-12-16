@@ -68,7 +68,7 @@ impl BloomFilter {
     fn compute_hashed_indices_array<T: Hash>(&self, item: &T) -> [usize; 30] {
         let (h1, h2) = self.get_base_hashes(item);
         let m = self.bit_array.len();
-        let mut indices = [0usize; 30];
+        let mut indices = [0_usize; 30];
         for i in 0..self.num_hashes {
             indices[i] = (h1.wrapping_add(i.wrapping_mul(h2))) % m;
         }
@@ -77,17 +77,18 @@ impl BloomFilter {
 
     /// Get hashes to use in double-hashing technique.
     /// Uses FxHasher for maximum speed (non-cryptographic).
+    /// Hash the item twice with different inputs to get two independent hashes.
     #[inline]
     fn get_base_hashes<T: Hash>(&self, item: &T) -> (usize, usize) {
-        // standard hash of the item
+        // First hash: just the item
         let mut hasher1 = FxHasher::default();
         item.hash(&mut hasher1);
         let h1 = hasher1.finish() as usize;
 
-        // hash the item with a seed to get independent hash
+        // Second hash: hash (item, seed) as a tuple for independence
         let mut hasher2 = FxHasher::default();
-        hasher2.write_u64(0x517cc1b727220a95); // seed value
         item.hash(&mut hasher2);
+        0x517cc1b727220a95usize.hash(&mut hasher2);
         let h2 = hasher2.finish() as usize;
 
         (h1, h2)
